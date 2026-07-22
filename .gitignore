@@ -2,3 +2,13 @@
 .idea/
 
 *.pyc
+
+
+# Local datasets
+data/PHOENIX2014T/
+data/phoenix14t.pami0.train
+data/phoenix14t.pami0.dev
+data/phoenix14t.pami0.test
+
+# Training outputs
+sign_session07_model/
