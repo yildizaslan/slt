@@ -110,8 +110,6 @@ Beam search improves translation quality compared to greedy decoding by explorin
 
 ## 9. Questions / Ambiguities
 
--## 9. Questions / Ambiguities
-
 - Some implementation details are not explained in the paper and can only be found in the repository.
 
 - The paper does not explain in detail how the recognition and translation loss weights were selected.
