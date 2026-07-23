@@ -1,3 +1,14 @@
+## Session 7 Colab Notebook
+
+The reproducible Google Colab notebook used for Session 7 is available as:
+
+- `week1_colab.ipynb`
+
+The notebook clones the `session07` branch, applies the required compatibility
+fixes automatically, prepares the dataset, and runs the SignJoey training
+pipeline on Google Colab.
+
+
 # Sign Language Transformers (CVPR'20)
 
 This repo contains the training and evaluation code for the paper [Sign Language Transformers: Sign Language Transformers: Joint End-to-end Sign Language Recognition and Translation](https://www.cihancamgoz.com/pub/camgoz2020cvpr.pdf). 
