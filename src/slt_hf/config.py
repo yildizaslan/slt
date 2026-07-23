@@ -2,10 +2,6 @@ from transformers import PretrainedConfig
 
 
 class SLTConfig(PretrainedConfig):
-    """
-    HuggingFace configuration for the Sign Language Translation model.
-    """
-
     model_type = "slt"
 
     def __init__(
@@ -25,14 +21,14 @@ class SLTConfig(PretrainedConfig):
         eos_token_id=2,
         **kwargs,
     ):
+        kwargs.setdefault("decoder_start_token_id", bos_token_id)
+        kwargs.setdefault("is_encoder_decoder", True)
+        kwargs.setdefault("tie_word_embeddings", False)
 
         super().__init__(
             pad_token_id=pad_token_id,
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
-            decoder_start_token_id=bos_token_id,
-            is_encoder_decoder=True,
-            tie_word_embeddings=False,
             **kwargs,
         )
 
@@ -44,6 +40,5 @@ class SLTConfig(PretrainedConfig):
         self.intermediate_size = intermediate_size
         self.dropout = dropout
         self.max_position_embeddings = max_position_embeddings
-
         self.vocab_size = vocab_size
         self.gloss_vocab_size = gloss_vocab_size
