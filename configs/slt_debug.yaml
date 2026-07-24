@@ -1,0 +1,52 @@
+name: slt_debug
+
+data:
+  data_path: ./data/
+  version: phoenix_2014_trans
+  sgn: sign
+  txt: text
+  gls: gloss
+  train: PHOENIX2014T/phoenix14t.train
+  dev: PHOENIX2014T/phoenix14t.dev
+  test: PHOENIX2014T/phoenix14t.test
+  feature_size: 1024
+  level: word
+  txt_lowercase: true
+  max_sent_length: 400
+  max_source_length: 400
+  max_target_length: 30
+  random_train_subset: 64
+  random_dev_subset: 32
+
+model:
+  feature_size: 1024
+  hidden_size: 128
+  num_attention_heads: 4
+  num_encoder_layers: 2
+  num_decoder_layers: 2
+  intermediate_size: 512
+  dropout: 0.1
+  max_position_embeddings: 400
+
+training:
+  num_train_epochs: 2
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  learning_rate: 5.0e-5
+  warmup_steps: 10
+  weight_decay: 0.0
+  logging_strategy: steps
+  logging_steps: 5
+  eval_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 1
+  predict_with_generate: true
+  generation_max_length: 30
+  report_to:
+    - wandb
+  run_name: slt-debug
+  use_cpu: true
+
+  label_smoothing: 0.1
+  recognition_loss_weight: 1.0
+  translation_loss_weight: 1.0

@@ -8,11 +8,24 @@ from .config import SLTConfig
 class SLTModel(PreTrainedModel):
     """
     HuggingFace-compatible Sign Language Translation model.
+
+    Standard HF names:
+        input_features
+        attention_mask
+        decoder_input_ids
+        decoder_attention_mask
+        labels
+
+    Legacy SignJoey-style aliases are also supported:
+        sgn
+        sgn_mask
+        txt_input
+        txt_mask
     """
 
     config_class = SLTConfig
     base_model_prefix = "slt"
-    main_input_name = "sgn"
+    main_input_name = "input_features"
 
     def __init__(self, config: SLTConfig):
         super().__init__(config)
@@ -53,30 +66,80 @@ class SLTModel(PreTrainedModel):
 
     def forward(
         self,
-        sgn,
-        txt_input,
-        sgn_mask=None,
-        txt_mask=None,
+        input_features=None,
+        decoder_input_ids=None,
+        attention_mask=None,
+        decoder_attention_mask=None,
         labels=None,
         gloss_labels=None,
-        sgn_lengths=None,
+        input_lengths=None,
         gloss_lengths=None,
+        # Backward-compatible aliases
+        sgn=None,
+        txt_input=None,
+        sgn_mask=None,
+        txt_mask=None,
+        sgn_lengths=None,
+        **kwargs,
     ):
-        src = self.input_projection(sgn)
-        tgt = self.text_embeddings(txt_input)
+        """
+        Shapes:
+            input_features       : (B, S, feature_size)
+            attention_mask       : (B, S)
+            decoder_input_ids    : (B, T)
+            decoder_attention_mask: (B, T)
+            labels               : (B, T)
+            logits               : (B, T, vocab_size)
+            gloss_logits         : (B, S, gloss_vocab_size)
+        """
+
+        # Preserve compatibility with the previous SignJoey-style API.
+        if input_features is None:
+            input_features = sgn
+
+        if decoder_input_ids is None:
+            decoder_input_ids = txt_input
+
+        if attention_mask is None:
+            attention_mask = sgn_mask
+
+        if decoder_attention_mask is None:
+            decoder_attention_mask = txt_mask
+
+        if input_lengths is None:
+            input_lengths = sgn_lengths
+
+        if input_features is None:
+            raise ValueError(
+                "input_features must be provided."
+            )
+
+        if decoder_input_ids is None:
+            raise ValueError(
+                "decoder_input_ids must be provided."
+            )
+
+        # (B, S, feature_size) -> (B, S, hidden_size)
+        src = self.input_projection(input_features)
+
+        # (B, T) -> (B, T, hidden_size)
+        tgt = self.text_embeddings(decoder_input_ids)
 
         src_key_padding_mask = None
-        if sgn_mask is not None:
-            src_key_padding_mask = ~sgn_mask.bool()
+        if attention_mask is not None:
+            # HF mask: 1 means valid, 0 means padding.
+            # PyTorch padding mask: True means ignore.
+            src_key_padding_mask = ~attention_mask.bool()
 
         tgt_key_padding_mask = None
-        if txt_mask is not None:
-            tgt_key_padding_mask = ~txt_mask.bool()
+        if decoder_attention_mask is not None:
+            tgt_key_padding_mask = ~decoder_attention_mask.bool()
 
-        tgt_len = txt_input.size(1)
+        tgt_len = decoder_input_ids.size(1)
+
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
             tgt_len,
-            device=txt_input.device,
+            device=decoder_input_ids.device,
         )
 
         memory = self.transformer.encoder(
@@ -100,31 +163,27 @@ class SLTModel(PreTrainedModel):
         recognition_loss = None
 
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss(
-                ignore_index=self.config.pad_token_id
-            )
-            translation_loss = loss_fct(
+            translation_loss = nn.functional.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size),
                 labels.reshape(-1),
+                ignore_index=-100,
             )
 
         if (
             gloss_labels is not None
-            and sgn_lengths is not None
+            and input_lengths is not None
             and gloss_lengths is not None
         ):
+            # CTCLoss expects (S, B, C).
             log_probs = gloss_logits.log_softmax(dim=-1).transpose(0, 1)
 
-            ctc_loss_fct = nn.CTCLoss(
-                blank=self.config.pad_token_id,
-                zero_infinity=True,
-            )
-
-            recognition_loss = ctc_loss_fct(
+            recognition_loss = nn.functional.ctc_loss(
                 log_probs,
                 gloss_labels,
-                sgn_lengths,
+                input_lengths,
                 gloss_lengths,
+                blank=self.config.pad_token_id,
+                zero_infinity=True,
             )
 
         if translation_loss is not None and recognition_loss is not None:

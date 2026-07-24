@@ -1,27 +1,52 @@
-from sacrebleu import corpus_bleu
+import evaluate
+import numpy as np
 
 
-def compute_metrics(eval_preds):
-    predictions, labels = eval_preds
+def make_compute_metrics(tokenizer):
+    bleu_metric = evaluate.load("sacrebleu")
 
-    if hasattr(predictions, "tolist"):
-        predictions = predictions.tolist()
+    def compute_metrics(eval_preds):
+        predictions, labels = eval_preds
 
-    if hasattr(labels, "tolist"):
-        labels = labels.tolist()
+        if isinstance(predictions, tuple):
+            predictions = predictions[0]
 
-    predictions = [
-        " ".join(map(str, pred))
-        for pred in predictions
-    ]
+        predictions = np.asarray(predictions)
+        labels = np.asarray(labels)
 
-    references = [
-        [" ".join(map(str, label))]
-        for label in labels
-    ]
+        labels = np.where(
+            labels == -100,
+            tokenizer.pad_token_id,
+            labels,
+        )
 
-    bleu = corpus_bleu(predictions, references)
+        decoded_predictions = tokenizer.batch_decode(
+            predictions,
+            skip_special_tokens=True,
+        )
 
-    return {
-        "bleu": bleu.score
-    }
+        decoded_labels = tokenizer.batch_decode(
+            labels,
+            skip_special_tokens=True,
+        )
+
+        decoded_predictions = [
+            text.strip()
+            for text in decoded_predictions
+        ]
+
+        decoded_labels = [
+            [text.strip()]
+            for text in decoded_labels
+        ]
+
+        result = bleu_metric.compute(
+            predictions=decoded_predictions,
+            references=decoded_labels,
+        )
+
+        return {
+            "bleu": result["score"],
+        }
+
+    return compute_metrics
